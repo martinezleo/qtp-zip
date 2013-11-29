@@ -42,9 +42,9 @@
 	</repositories>
 	<distributionManagement>
 		<site>
-      		<id>github-project-site</id>
-      		<url>gitsite:git@github.com/zeedeveloper/qtp-zip.git</url>
-    	</site>
+			<id>github-project-site</id>
+			<url>gitsite:git@github.com/zeedeveloper/qtp-zip.git</url>
+		</site>
 	</distributionManagement>
 	<dependencies>
 
@@ -53,6 +53,12 @@
 			<artifactId>zephyr-socket-server</artifactId>
 			<version>4.1</version>
 		</dependency>
+		<dependency>
+			<groupId>commons-io</groupId>
+			<artifactId>commons-io</artifactId>
+			<version>2.4</version>
+		</dependency>
+
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
@@ -79,21 +85,21 @@
 
 		</plugins>
 		<extensions>
-      			<extension>
-        			<groupId>org.apache.maven.scm</groupId>
-        			<artifactId>maven-scm-provider-gitexe</artifactId>
-        			<version>1.3</version>
-      			</extension>
-      			<extension>
-        			<groupId>org.apache.maven.scm</groupId>
-        			<artifactId>maven-scm-manager-plexus</artifactId>
-        			<version>1.3</version>
-      			</extension>
-      			<extension>
-        			<groupId>org.kathrynhuxtable.maven.wagon</groupId>
-        			<artifactId>wagon-gitsite</artifactId>
-        			<version>0.3.1</version>
-      			</extension>
-    		</extensions>
+			<extension>
+				<groupId>org.apache.maven.scm</groupId>
+				<artifactId>maven-scm-provider-gitexe</artifactId>
+				<version>1.3</version>
+			</extension>
+			<extension>
+				<groupId>org.apache.maven.scm</groupId>
+				<artifactId>maven-scm-manager-plexus</artifactId>
+				<version>1.3</version>
+			</extension>
+			<extension>
+				<groupId>org.kathrynhuxtable.maven.wagon</groupId>
+				<artifactId>wagon-gitsite</artifactId>
+				<version>0.3.1</version>
+			</extension>
+		</extensions>
 	</build>
 </project>

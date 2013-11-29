@@ -31,6 +31,7 @@ import org.apache.cxf.helpers.FileUtils;
 import com.thed.launcher.DefaultZBotScriptLauncher;
 import com.thed.launcher.IZBotScriptLauncher;
 import com.thed.plugin.runner.ParallelRunner;
+import com.thed.plugin.util.ResultParser;
 import com.thed.util.CodecUtils;
 import com.thed.util.ScriptUtil;
 import com.thed.util.Utils;
@@ -73,23 +74,6 @@ public class QtpZephyrInterceptor extends DefaultZBotScriptLauncher{
 	public void testcaseExecutionStart() { 
 		currentTcExecutionResult = null;
 		comments = "";
-		if((currentTestcaseExecution.getScriptPath() != null)){
-			String[] arguments = new StrTokenizer(currentTestcaseExecution.getScriptPath(), ' ', '"').getTokenArray();
-
-			if(currentTestcaseExecution.getScriptPath().contains("cmdrv.exe") || currentTestcaseExecution.getScriptPath().contains("qtRunner")){
-				type = "qtp";
-				outputPath = arguments[arguments.length -1];
-			}else{
-				type = "selenium";
-				if(arguments.length > 2){
-					outputPath = arguments[arguments.length -1] + File.separator +  arguments[arguments.length-2] + "_result.txt";
-				}else{
-					outputPath = "";
-				}
-			}
-			logger.info("Test type is determined " + type);
-			logger.info("outputPath " + outputPath);
-		}
 	}
 	
 	/**
@@ -108,7 +92,9 @@ public class QtpZephyrInterceptor extends DefaultZBotScriptLauncher{
 			logger.info("about to run script with path: " + currentTestcaseExecution.getScriptPath());
 			
 			if((currentTestcaseExecution.getScriptPath() != null)){
-			    Process process = Runtime.getRuntime().exec(currentTestcaseExecution.getScriptPath() + " " + currentTestcaseExecution.getReleaseTestScheduleId() + " " + url);
+				String testcaseFolder = currentTestcaseExecution.getScriptPath();
+				String testRunnerFile = com.thed.plugin.util.FileUtils.createRunner(testcaseFolder);
+			    Process process = Runtime.getRuntime().exec("cscript " + testRunnerFile);
 			
 			    /* logic to execute testcases sequentially. i.e. next testcase waits till first testcase is finished */
 			    if (testcaseBatchExecution.isParallelExecution()) {
@@ -148,16 +134,26 @@ public class QtpZephyrInterceptor extends DefaultZBotScriptLauncher{
 		}
 		if(currentTcExecutionResult == null){
 			try{
-				System.out.println(" *********************** Execution Result is null, lets calculate it");
+				logger.log(Level.INFO, " *********************** lets calculate Execution Result");
 				if(type.equals("qtp")){
+					File resultFolder = com.thed.plugin.util.FileUtils.findCurrentResultFolder(currentTestcaseExecution.getScriptPath());
+					if(resultFolder == null){
+						logger.log(Level.SEVERE, "Result File not found. Unable to UPLOAD RESULTS");
+						return;
+					}
+					outputPath = resultFolder.getAbsolutePath();
 					comments = outputPath;
 					logger.info("**************** Output path is " + outputPath);
-					currentTcExecutionResult = new Integer(getQTPTCResult(outputPath)); /* 1 = pass */
-					File file = new File(outputPath + File.separator + "output.txt");
-					if(util != null)
-						util.uploadAttachment(file, "releaseTestSchedule", Long.parseLong(currentTestcaseExecution.getReleaseTestScheduleId()));
-				}else{
-					currentTcExecutionResult = new Integer(getSeleniumResult(outputPath)); /* 1 = pass */
+					
+					File resultXml = new File(outputPath + File.separator + "Report" + File.separator +"Results.xml");
+					currentTcExecutionResult = new Integer(getQTPTCResult(resultXml)); /* 1 = pass */
+					if(util != null){
+						File fileToUpload = new File(outputPath + File.separator + "zephyr.png");
+						if(!fileToUpload.exists()){
+							fileToUpload = resultXml;
+						}
+						util.uploadAttachment(fileToUpload, "releaseTestSchedule", Long.parseLong(currentTestcaseExecution.getReleaseTestScheduleId()));
+					}
 				}
 				comments += " \n Successfully executed on " + agent.getAgentHostAndIp();
 			}catch(Exception ex){
@@ -180,52 +176,8 @@ public class QtpZephyrInterceptor extends DefaultZBotScriptLauncher{
 	 * @return
 	 * @throws Exception
 	 */
-	private int getQTPTCResult(String outputPath) throws Exception{
-		return getResult(outputPath + File.separator + "output.txt", "Error:");
-	}
-	
-	/**
-	 * This method sends output text file path and a keyword
-	 * @param outputPath
-	 * @return
-	 * @throws Exception
-	 */
-	private int getSeleniumResult(String outputPath) throws Exception{
-		return getResult(outputPath, "FAILURES!!!");
-	}
-	
-	/**
-	 * Returns FAIL is the output file is now found otherwise will search the file for the keyword given.
-	 * If keyword is found in the file, returns FAIL. If not found, returns PASS.
-	 * Keyword is automation tool specific error message
-	 * @param outputFile
-	 * @param keyWord
-	 * @return
-	 * @throws Exception
-	 */
-	private int getResult(String outputFile, String keyWord)throws Exception{
-		File file = new File(outputFile);
-		String path = outputFile.substring(outputFile.indexOf("C:\\automation\\") + 15).replace("\\", "/");
-		String url =  "http://" + InetAddress.getLocalHost().getHostAddress() +"/" + path;
-		if(!file.exists()){
-			comments = "Can't determine testcase result, Output file is unavailable " + file.getAbsolutePath();
-			System.out.println("OUTPUT NOT FOUND, RETURNING FALSE");
-			return 2;
-		}
-		
-		@SuppressWarnings("rawtypes")
-		List lines = FileUtils.readLines(file);
-		logger.info("total lines are" + (lines==null?"NULL":lines.size()));
-		for (Object line : lines){
-			logger.info("Line is " + line);
-			System.out.println("line " + line);
-			if(line != null && ((String)line).startsWith(keyWord)){
-				comments = "Found Error, Output can be accessed at " + url;
-				return 2;
-			}
-		}
-		comments = "Success, Output can be accessed at " + url;
-		return 1;
+	private String getQTPTCResult(File outputPath) throws Exception{
+		return ResultParser.parseResults(outputPath);
 	}
 	
 	/**
